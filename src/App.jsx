@@ -931,22 +931,40 @@ ${cardLines}
 各カードをポジションの意味を踏まえて解釈し、全体的なメッセージと具体的なアドバイスをお願いします。温かく、背中を押してくれるような文体でお願いします。`;
 
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${GEMINI_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
-          })
+      // 利用可能なモデルを優先順で自動試行
+      const models = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-pro",
+      ];
+      let data = null;
+      let lastError = "";
+      for (const model of models) {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
+            })
+          }
+        );
+        if (res.ok) {
+          data = await res.json();
+          break;
+        } else {
+          const err = await res.json();
+          lastError = err.error?.message || `API Error: ${res.status}`;
+          // クォータ超過・モデル未対応以外はリトライしない
+          if (!lastError.includes("not found") && !lastError.includes("quota") && !lastError.includes("RESOURCE_EXHAUSTED")) {
+            throw new Error(lastError);
+          }
         }
-      );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || `API Error: ${res.status}`);
       }
-      const data = await res.json();
+      if (!data) throw new Error(lastError || "利用可能なモデルが見つかりませんでした");
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       setReading(text);
     } catch(e) {
