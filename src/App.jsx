@@ -848,11 +848,10 @@ export default function TarotApp() {
   const [revealedSet, setRevealedSet] = useState(new Set());
   const [selectedCard, setSelectedCard] = useState(null);
   const [meaningCard, setMeaningCard] = useState(null); // タップして意味表示するカードindex
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("gemini_api_key") || "");
-  const [showApiInput, setShowApiInput] = useState(false);
   const [reading, setReading] = useState("");
   const [loadingReading, setLoadingReading] = useState(false);
   const [readingError, setReadingError] = useState("");
+  const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
   const [copied, setCopied] = useState(false);
   const [activeCat, setActiveCat] = useState("basic");
   const [searchQuery, setSearchQuery] = useState("");
@@ -894,7 +893,12 @@ export default function TarotApp() {
 
   // Gemini APIでリーディング生成
   const callGemini = async (drawn) => {
-    if (!apiKey) { setShowApiInput(true); return; }
+    if (!GEMINI_KEY) {
+      setReadingError(lang==="ja"
+        ? "APIキーが設定されていません。Vercelの環境変数 VITE_GEMINI_API_KEY を設定してください。"
+        : "API key not configured. Please set VITE_GEMINI_API_KEY in Vercel environment variables.");
+      return;
+    }
     setLoadingReading(true);
     setReading("");
     setReadingError("");
@@ -928,7 +932,7 @@ ${cardLines}
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -950,12 +954,6 @@ ${cardLines}
     } finally {
       setLoadingReading(false);
     }
-  };
-
-  const saveApiKey = (key) => {
-    localStorage.setItem("gemini_api_key", key);
-    setApiKey(key);
-    setShowApiInput(false);
   };
 
   const copyPrompt = () => {
@@ -1327,49 +1325,6 @@ ${cardLines}
                 {/* Gemini APIリーディングエリア */}
                 <div style={{margin:"14px 0"}}>
 
-                  {/* APIキー入力モーダル */}
-                  {showApiInput && (
-                    <div style={{
-                      background:"rgba(255,255,255,0.95)",
-                      border:"1px solid rgba(180,140,220,0.3)",
-                      borderRadius:14,padding:"20px 16px",marginBottom:12,
-                      boxShadow:"0 4px 20px rgba(160,120,220,0.15)"}}>
-                      <p style={{fontSize:13,color:"#5040a0",margin:"0 0 10px",fontWeight:500}}>
-                        {lang==="ja" ? "Gemini APIキーを入力してください" : "Enter your Gemini API Key"}
-                      </p>
-                      <p style={{fontSize:11,color:"#9080a8",margin:"0 0 12px",lineHeight:1.6}}>
-                        {lang==="ja"
-                          ? "Google AI StudioでAPIキーを取得できます。一度入力すると保存されます。"
-                          : "Get your API key from Google AI Studio. It will be saved for future use."}
-                      </p>
-                      <div style={{display:"flex",gap:8}}>
-                        <input
-                          type="password"
-                          placeholder="AIza..."
-                          id="gemini-key-input"
-                          defaultValue={apiKey}
-                          style={{flex:1,padding:"9px 12px",fontSize:13,
-                            border:"1px solid rgba(180,140,220,0.3)",borderRadius:8,
-                            fontFamily:"monospace",outline:"none",background:"rgba(255,255,255,0.9)"}}
-                        />
-                        <button onClick={()=>{
-                          const v = document.getElementById("gemini-key-input").value.trim();
-                          if(v) saveApiKey(v);
-                        }} style={{
-                          background:"linear-gradient(135deg,#c9a0e8,#a0b4e8)",
-                          border:"none",color:"#fff",padding:"9px 18px",fontSize:13,
-                          cursor:"pointer",borderRadius:8,fontFamily:"inherit",whiteSpace:"nowrap"}}>
-                          {lang==="ja" ? "保存して占う" : "Save & Read"}
-                        </button>
-                      </div>
-                      <button onClick={()=>setShowApiInput(false)} style={{
-                        background:"transparent",border:"none",color:"#b0a0c0",
-                        fontSize:11,cursor:"pointer",marginTop:8,fontFamily:"inherit"}}>
-                        {lang==="ja" ? "キャンセル" : "Cancel"}
-                      </button>
-                    </div>
-                  )}
-
                   {/* リーディングボタン */}
                   {!reading && !loadingReading && (
                     <div style={{textAlign:"center",marginBottom:12}}>
@@ -1381,14 +1336,6 @@ ${cardLines}
                         borderRadius:32,boxShadow:"0 4px 20px rgba(160,120,220,0.35)"}}>
                         ✦ {lang==="ja" ? "AIにリーディングしてもらう" : "Get AI Reading"} ✦
                       </button>
-                      {apiKey && (
-                        <button onClick={()=>setShowApiInput(true)} style={{
-                          display:"block",margin:"8px auto 0",
-                          background:"transparent",border:"none",
-                          color:"#c0b0d0",fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>
-                          {lang==="ja" ? "APIキーを変更する" : "Change API Key"}
-                        </button>
-                      )}
                     </div>
                   )}
 
@@ -1418,20 +1365,12 @@ ${cardLines}
                       background:"rgba(255,240,240,0.9)",
                       border:"1px solid rgba(200,80,80,0.25)",
                       borderRadius:12,padding:"14px 16px",marginBottom:12}}>
-                      <p style={{fontSize:12,color:"#c05060",margin:"0 0 8px",fontWeight:500}}>
+                      <p style={{fontSize:12,color:"#c05060",margin:"0 0 6px",fontWeight:500}}>
                         {lang==="ja" ? "エラーが発生しました" : "An error occurred"}
                       </p>
-                      <p style={{fontSize:11,color:"#a07080",margin:"0 0 10px",lineHeight:1.6}}>
-                        {readingError.includes("API_KEY_INVALID") || readingError.includes("400")
-                          ? (lang==="ja" ? "APIキーが無効です。正しいキーを入力してください。" : "Invalid API key. Please enter a valid key.")
-                          : readingError}
+                      <p style={{fontSize:11,color:"#a07080",margin:0,lineHeight:1.6}}>
+                        {readingError}
                       </p>
-                      <button onClick={()=>{setReadingError("");setShowApiInput(true);}} style={{
-                        background:"linear-gradient(135deg,#c9a0e8,#a0b4e8)",
-                        border:"none",color:"#fff",padding:"6px 16px",fontSize:12,
-                        cursor:"pointer",borderRadius:16,fontFamily:"inherit"}}>
-                        {lang==="ja" ? "APIキーを再入力" : "Re-enter API Key"}
-                      </button>
                     </div>
                   )}
 
