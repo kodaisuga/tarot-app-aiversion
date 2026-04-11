@@ -931,24 +931,8 @@ ${cardLines}
 各カードをポジションの意味を踏まえて解釈し、全体的なメッセージと具体的なアドバイスをお願いします。温かく、背中を押してくれるような文体でお願いします。`;
 
     try {
-      // まず利用可能なモデル一覧を取得
-      const listRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_KEY}`
-      );
-      let modelName = "gemini-1.5-flash"; // デフォルト
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const available = (listData.models || [])
-          .map(m => m.name.replace("models/", ""))
-          .filter(m => m.includes("gemini") && m.includes("flash"));
-        // 優先順位: 2.0-flash > 1.5-flash > その他flash
-        const preferred = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
-        const found = preferred.find(p => available.includes(p)) || available[0];
-        if (found) modelName = found;
-      }
-
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
